@@ -13,6 +13,7 @@ import traceback
 
 Symbol = str
 
+
 class Env(dict):
     "An environment: a dict of {'var':val} pairs, with an outer Env."
 
@@ -24,18 +25,19 @@ class Env(dict):
         "Find the innermost Env where var appears."
         return self if var in self else self.outer.find(var)
 
+    
 def add_globals(env):
     "Add some built-in procedures and variables to the environment."
     import operator
     env.update(
         {'+': operator.add,
-         '-': operator.sub, 
-         '*': operator.mul, 
-         '/': operator.div, 
-         '>': operator.gt, 
-         '<': operator.lt, 
-         '>=': operator.ge, 
-         '<=': operator.le, 
+         '-': operator.sub,
+         '*': operator.mul,
+         '/': operator.truediv,
+         '>': operator.gt,
+         '<': operator.lt,
+         '>=': operator.ge,
+         '<=': operator.le,
          '=': operator.eq
          })
     env.update({'True': True, 'False': False})
@@ -47,13 +49,14 @@ isa = isinstance
 
 #### eval
 
+
 def eval(x, env=global_env):
     "Evaluate an expression in an environment."
     if isa(x, Symbol):              # variable reference
         return env.find(x)[x]
     elif not isa(x, list):          # constant literal
-        return x                
-    elif x[0] == 'quote' or x[0] == 'q': # (quote exp), or (q exp)
+        return x
+    elif x[0] == 'quote' or x[0] == 'q':  # (quote exp), or (q exp)
         (_, exp) = x
         return exp
     elif x[0] == 'atom?':           # (atom? exp)
@@ -71,14 +74,14 @@ def eval(x, env=global_env):
         return eval(exp, env)[1:]
     elif x[0] == 'cons':            # (cons exp1 exp2)
         (_, exp1, exp2) = x
-        return [eval(exp1, env)]+eval(exp2,env)
+        return [eval(exp1, env)] + eval(exp2, env)
     elif x[0] == 'cond':            # (cond (p1 e1) ... (pn en))
         for (p, e) in x[1:]:
-            if eval(p, env): 
+            if eval(p, env):
                 return eval(e, env)
     elif x[0] == 'null?':           # (null? exp)
         (_, exp) = x
-        return eval(exp,env) == []
+        return eval(exp, env) == []
     elif x[0] == 'if':              # (if test conseq alt)
         (_, test, conseq, alt) = x
         return eval((conseq if eval(test, env) else alt), env)
@@ -102,13 +105,16 @@ def eval(x, env=global_env):
 
 #### parsing
 
+
 def parse(s):
     "Parse a Lisp expression from a string."
     return read_from(tokenize(s))
 
+
 def tokenize(s):
     "Convert a string into a list of tokens."
     return s.replace("(", " ( ").replace(")", " ) ").split()
+
 
 def read_from(tokens):
     "Read an expression from a sequence of tokens."
@@ -119,29 +125,34 @@ def read_from(tokens):
         L = []
         while tokens[0] != ')':
             L.append(read_from(tokens))
-        tokens.pop(0) # pop off ')'
+        tokens.pop(0)  # pop off ')'
         return L
     elif ')' == token:
         raise SyntaxError('unexpected )')
     else:
         return atom(token)
 
+    
 def atom(token):
     "Numbers become numbers; every other token is a symbol."
-    try: return int(token)
+    try:
+        return int(token)
     except ValueError:
-        try: return float(token)
+        try:
+            return float(token)
         except ValueError:
-            return Symbol(token)
+                return Symbol(token)
 
+        
 def to_string(exp):
     "Convert a Python object back into a Lisp-readable string."
     if not isa(exp, list):
         return str(exp)
     else:
-        return '('+' '.join(map(to_string, exp))+')'         
+        return '(' + ' '.join(map(to_string, exp)) + ')'
 
 #### Load from a file and run
+
 
 def load(filename):
     """
@@ -151,7 +162,7 @@ def load(filename):
     merging lines until the number of opening and closing parentheses
     match.
     """
-    print "Loading and executing %s" % filename
+    print("Loading and executing {0}".format(filename))
     f = open(filename, "r")
     program = f.readlines()
     f.close()
@@ -159,25 +170,27 @@ def load(filename):
     full_line = ""
     for (paren_sum, program_line) in zip(rps, program):
         program_line = program_line.strip()
-        full_line += program_line+" "
+        full_line += program_line + " "
         if paren_sum == 0 and full_line.strip() != "":
             try:
                 val = eval(parse(full_line))
-                if val is not None: print to_string(val)
+                if val is not None:
+                    print(to_string(val))
             except:
                 handle_error()
-                print "\nThe line in which the error occurred:\n%s" % full_line
+                print("\nThe line in which the error occurred:\n{0}".format(full_line))
                 break
             full_line = ""
     repl()
 
+    
 def running_paren_sums(program):
     """
     Map the lines in the list program to a list whose entries contain
     a running sum of the per-line difference between the number of '('
     parentheses and the number of ')' parentheses.
     """
-    count_open_parens = lambda line: line.count("(")-line.count(")")
+    count_open_parens = lambda line: line.count("(") - line.count(")")
     paren_counts = map(count_open_parens, program)
     rps = []
     total = 0
@@ -188,31 +201,36 @@ def running_paren_sums(program):
 
 #### repl
 
+
 def repl(prompt='tiddlylisp> '):
     "A prompt-read-eval-print loop."
     while True:
         try:
-            val = eval(parse(raw_input(prompt)))
-            if val is not None: print to_string(val)
+            val = eval(parse(input(prompt)))
+            if val is not None:
+                print(to_string(val))
         except KeyboardInterrupt:
-            print "\nExiting tiddlylisp\n"
+            print("\nExiting tiddlylisp\n")
             sys.exit()
         except:
             handle_error()
 
+            
 #### error handling
+
 
 def handle_error():
     """
     Simple error handling for both the repl and load.
     """
-    print "An error occurred.  Here's the Python stack trace:\n"
+    print("An error occurred.  Here's the Python stack trace:\n")
     traceback.print_exc()
 
+    
 #### on startup from the command line
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1: 
+    if len(sys.argv) > 1:
         load(sys.argv[1])
-    else: 
+    else:
         repl()
